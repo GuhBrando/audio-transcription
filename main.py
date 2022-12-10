@@ -74,7 +74,7 @@ import numpy as np
 sound_file = AudioSegment.from_mp3("My Childhood Obsession with Animals-6E94j0Goo8A.mp3")
 sound_file_Value = np.array(sound_file.get_array_of_samples())
 # milliseconds in the sound track
-ranges = [(30000,100000)] 
+ranges = [(30000,1000000)] 
 
 for x, y in ranges:
     new_file=sound_file_Value[x : y]
