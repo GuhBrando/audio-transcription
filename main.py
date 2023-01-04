@@ -1,5 +1,17 @@
 # Databricks notebook source
-STORAGE_ACCOUNT = "6c4d2a82-5766-48b1-a881-a901d58143a8"
+password = dbutils.secrets.get(scope="akv-audio-transcription", key="storage-app-password")
+
+# COMMAND ----------
+
+print(password)
+
+# COMMAND ----------
+
+# MAGIC %run ./utils/config_and_setup
+
+# COMMAND ----------
+
+# MAGIC %run ./utils/config_and_setup
 
 # COMMAND ----------
 
@@ -25,6 +37,149 @@ apt-get install -y ffmpeg
 
 # COMMAND ----------
 
+def mount_disk(fileSystemName):
+    configs = {
+        "fs.azure.account.auth.type": "OAuth",
+        "fs.azure.account.oauth.provider.type": "org.apache.hadoop.fs.azurebfs.oauth2.ClientCredsTokenProvider",
+        "fs.azure.account.oauth2.client.id": appID,
+        "fs.azure.account.oauth2.client.secret": password,
+        "fs.azure.account.oauth2.client.endpoint": "https://login.microsoftonline.com/"+tenantID+"/oauth2/token",
+        "fs.azure.createRemoteFileSystemDuringInitialization": "true"
+    }
+
+    dbutils.fs.mount(
+    source = "abfss://" + fileSystemName + "@" + storageAccountName + ".dfs.core.windows.net/",
+    mount_point = "/mnt/"+fileSystemName,
+    extra_configs = configs
+    )
+
+fileSystemName = "audio-transcription-files"
+try:
+    mount_disk(fileSystemName)
+except:
+    print("WARN - Mount do File System ja foi executado. | Skipped")
+
+# COMMAND ----------
+
+def store_audio_file(origin_file, dest_location_plus_file):
+    try:
+        shutil.copyfile(origin_file, dest_location_plus_file)
+        return origin_file
+    except FileNotFoundError:
+        origin_file = origin_file.replace("|", "_").replace("?", "")
+        dest_location_plus_file = dest_location_plus_file.replace("|", "_").replace("?", "")
+        shutil.copyfile(origin_file, dest_location_plus_file)
+        return origin_file
+
+# COMMAND ----------
+
+# MAGIC %sh
+# MAGIC wget https://github.com/mozilla/geckodriver/releases/download/v0.32.0/geckodriver-v0.32.0-linux64.tar.gz -O /tmp/geckodriver.tar.gz
+
+# COMMAND ----------
+
+# MAGIC %sh
+# MAGIC tar -xvzf /tmp/geckodriver.tar.gz -C /tmp
+
+# COMMAND ----------
+
+# MAGIC %sh
+# MAGIC /usr/bin/yes | sudo apt update --fix-missing > /dev/null 2>&1
+
+# COMMAND ----------
+
+# MAGIC %sh
+# MAGIC sudo apt-get --yes --force-yes install firefox > /dev/null 2>&1
+
+# COMMAND ----------
+
+def download_youtube_videos(youtube_video_search, video_quantity):
+    videosSearch = CustomSearch(youtube_video_search, VideoSortOrder.uploadDate, limit = video_quantity, language='pt', region = 'BR')
+    for video in videosSearch.result()["result"]:
+        print(video)
+        video_title = video["title"]+"-"+video["id"]+".mp3"
+        audio_downloader = {
+            'format': 'bestaudio/best',
+            'postprocessors': [{
+                'key': 'FFmpegExtractAudio',
+                'preferredcodec': 'mp3',
+                'preferredquality': '192',
+            }]
+        }
+
+        with youtube_dl.YoutubeDL(audio_downloader) as ydl:
+            result = ydl.extract_info(
+                        video["link"],
+                        download=True
+                    )
+        print(video["title"])
+        adb_workspace = "/Workspace/Repos/guh.brandao@hotmail.com/audio-transcription/"
+        adls_path = "/dbfs/mnt/audio-transcription-files/"
+        audio_path = store_audio_file(adb_workspace+video_title, adls_path+video_title)
+        os.remove(audio_path)
+download_youtube_videos("Minecraft", 2)
+
+# COMMAND ----------
+
+driver = webdriver.Chrome(service=Service(ChromeDriverManager().install()))
+driver.get("https://www.google.com")
+
+# COMMAND ----------
+
+options = Options()
+options.headless = True
+driver = webdriver.Firefox(options=options, executable_path='/tmp/geckodriver')
+driver.implicitly_wait(5)
+
+search_query = input().split()
+print(search_query)
+
+for word in search_query:
+    final_query += word + "+"
+    
+driver.get('https://www.youtube.com/results?search_query={}'.format(final_query))
+select = driver.find_element(By.CSS_SELECTOR, 'div#contents ytd-item-section-renderer>div#contents a#thumbnail')
+link += [select.get_attribute('href')]
+print(link)
+
+# COMMAND ----------
+
+AUDIO_FILE = "blackhole.wav"
+r = sr.Recognizer()
+    
+with sr.AudioFile(AUDIO_FILE) as source:
+    audio = r.record(source,offset=30, duration=30)
+    text = r.recognize_google(audio, language = 'en-IN', show_all = True)
+    print(text)
+    print("Transcript: " + text["alternative"][0]["transcript"])
+
+# COMMAND ----------
+
+account_url = "https://staaudiotranscripter.dfs.core.windows.net"
+default_credential = DefaultAzureCredential()
+
+upload_file_path = os.path.join("/Workspace/Repos/guh.brandao@hotmail.com/audio-transcription", "ytbvideo.wav")
+# Create the BlobServiceClient object
+blob_service_client = BlobServiceClient(account_url, credential=default_credential)
+print(blob_service_client)
+
+local_file_name = str(uuid.uuid4()) + ".wav"
+
+blob_client = blob_service_client.get_blob_client(container="audiotranscriptor", blob="/Workspace/Repos/guh.brandao@hotmail.com/audio-transcription/ytbvideo.wav")
+
+print("\nUploading to Azure Storage as blob:\n\t" + local_file_name)
+
+# Upload the created file
+with open(file=upload_file_path, mode="rb") as data:
+    blob_client.upload_blob(data)
+
+# COMMAND ----------
+
+# MAGIC %sh
+# MAGIC pwd
+
+# COMMAND ----------
+
 # MAGIC %sh
 # MAGIC apt-get install libav-tools libavcodec-extra
 
@@ -42,16 +197,6 @@ apt-get install -y ffmpeg
 
 # MAGIC %sh
 # MAGIC sudo apt-get -y install ffmpeg
-
-# COMMAND ----------
-
-# MAGIC %sh
-# MAGIC pip install SpeechRecognition
-
-# COMMAND ----------
-
-# MAGIC %sh
-# MAGIC pip install AudioConverter
 
 # COMMAND ----------
 
@@ -88,22 +233,15 @@ import os
 from pydub import AudioSegment
 from pydub.playback import play
 import numpy as np
-filename = 'myfile.wav'
 
-AUDIO_FILE = "ytbvideo.wav"
+AUDIO_FILE = "blackhole.wav"
 r = sr.Recognizer()
     
 with sr.AudioFile(AUDIO_FILE) as source:
-    audio = r.record(source)
+    audio = r.record(source,offset=30, duration=30)
     text = r.recognize_google(audio, language = 'en-IN', show_all = True)
     print(text)
-    print("Transcript: " + r.recognize_google(audio, language = 'en-IN', show_all = True))
-
-# COMMAND ----------
-
-from pydub import AudioSegment
-sound = AudioSegment.from_mp3("30000-100000.mp3")
-sound.export("ytbvideo.wav", format="wav")
+    print("Transcript: " + text["alternative"][0]["transcript"])
 
 # COMMAND ----------
 
@@ -114,6 +252,8 @@ sound.export("ytbvideo.wav", format="wav")
 
 import youtube_dl
 from __future__ import unicode_literals
+SAVE_PATH = "/dbfs/mnt/data/"
+
 
 audio_downloader = {
     'format': 'bestaudio/best',
@@ -122,19 +262,18 @@ audio_downloader = {
         'preferredcodec': 'mp3',
         'preferredquality': '192',
     }],
+    'outtmpl':SAVE_PATH + '/%(title)s.%(ext)s',
 }
 
 with youtube_dl.YoutubeDL(audio_downloader) as ydl:
-    ydl.download(['https://www.youtube.com/watch?v=6E94j0Goo8A&ab_channel=JaidenAnimations'])
+    ydl.download(['https://www.youtube.com/watch?v=aeWyp2vXxqA&ab_channel=Kurzgesagt%E2%80%93InaNutshell'])
 
 
-try:
-    print('Youtube Downloader'.center(40, '_'))
-    teste = audio_downloader.extract_info("https://www.youtube.com/watch?v=8BSYycuH-q8&ab_channel=GenshinImpact")
-    print(teste)
-except Exception:
-    print("Couldn\'t download the audio")
+# COMMAND ----------
 
+from pydub import AudioSegment
+sound = AudioSegment.from_mp3("Black Hole Star – The Star That Shouldn't Exist-aeWyp2vXxqA.mp3")
+sound.export("blackhole.wav", format="wav")
 
 # COMMAND ----------
 
