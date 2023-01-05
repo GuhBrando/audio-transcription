@@ -1,17 +1,37 @@
 # Databricks notebook source
-password = dbutils.secrets.get(scope="akv-audio-transcription", key="storage-app-password")
-
-# COMMAND ----------
-
-print(password)
-
-# COMMAND ----------
-
 # MAGIC %run ./utils/config_and_setup
 
 # COMMAND ----------
 
-# MAGIC %run ./utils/config_and_setup
+# MAGIC %run ./utils/adls_manipulation
+
+# COMMAND ----------
+
+display(spark.read.format('csv').load('abfss://b-audio-transcription-files@staaudiotranscripter.dfs.core.windows.net/tabela-adls.csv'))
+
+# COMMAND ----------
+
+configs = {
+    "fs.azure.account.auth.type": "OAuth",
+    "fs.azure.account.oauth.provider.type": "org.apache.hadoop.fs.azurebfs.oauth2.ClientCredsTokenProvider",
+    "fs.azure.account.oauth2.client.id": spn_id,
+    "fs.azure.account.oauth2.client.secret": spn_password,
+    "fs.azure.account.oauth2.client.endpoint": "https://login.microsoftonline.com/"+tenant_id+"/oauth2/token",
+    "fs.azure.createRemoteFileSystemDuringInitialization": "true"
+}
+dbutils.fs.ls("abfss://audio-transcription-files@staaudiotranscripter.dfs.core.windows.net/", extra_configs = configs)
+
+# COMMAND ----------
+
+# MAGIC %sql
+# MAGIC create external table teste(
+# MAGIC     teste1 Int,
+# MAGIC     teste2 String
+# MAGIC )location = /mnt/audio-transcription-files
+
+# COMMAND ----------
+
+spark.sql("select * from bdq.teste")
 
 # COMMAND ----------
 
@@ -37,25 +57,9 @@ apt-get install -y ffmpeg
 
 # COMMAND ----------
 
-def mount_disk(fileSystemName):
-    configs = {
-        "fs.azure.account.auth.type": "OAuth",
-        "fs.azure.account.oauth.provider.type": "org.apache.hadoop.fs.azurebfs.oauth2.ClientCredsTokenProvider",
-        "fs.azure.account.oauth2.client.id": appID,
-        "fs.azure.account.oauth2.client.secret": password,
-        "fs.azure.account.oauth2.client.endpoint": "https://login.microsoftonline.com/"+tenantID+"/oauth2/token",
-        "fs.azure.createRemoteFileSystemDuringInitialization": "true"
-    }
-
-    dbutils.fs.mount(
-    source = "abfss://" + fileSystemName + "@" + storageAccountName + ".dfs.core.windows.net/",
-    mount_point = "/mnt/"+fileSystemName,
-    extra_configs = configs
-    )
-
 fileSystemName = "audio-transcription-files"
 try:
-    mount_disk(fileSystemName)
+    mount_disk(fileSystemName, spn_id, spn_password)
 except:
     print("WARN - Mount do File System ja foi executado. | Skipped")
 

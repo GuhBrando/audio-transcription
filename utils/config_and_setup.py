@@ -1,6 +1,5 @@
 # Databricks notebook source
-# MAGIC %sh
-# MAGIC pip install -q selenium youtube-search-python youtube_dl azure.identity azure.storage.blob pipwin
+#pip install -q selenium youtube-search-python youtube_dl azure.identity azure.storage.blob pipwin
 
 # COMMAND ----------
 
@@ -26,6 +25,10 @@
 
 # MAGIC %sh
 # MAGIC sudo apt-get -y install pulseaudio-equalizer
+
+# COMMAND ----------
+
+
 
 # COMMAND ----------
 
@@ -60,6 +63,13 @@ from __future__ import unicode_literals
 
 STORAGE_ACCOUNT = "6c4d2a82-5766-48b1-a881-a901d58143a8"
 
-appID = "64e72c3a-2237-4645-9e29-c7af44dc446a"
-tenantID = "02589359-ab33-4ac8-a14d-396cc39943ae"
+spn_id = "64e72c3a-2237-4645-9e29-c7af44dc446a"
+tenant_id = "02589359-ab33-4ac8-a14d-396cc39943ae"
+spn_password = dbutils.secrets.get(scope="akv-audio-transcription", key="storage-app-password")
 storageAccountName = "staaudiotranscripter"
+
+spark.conf.set("fs.azure.account.auth.type.staaudiotranscripter.dfs.core.windows.net", "OAuth")
+spark.conf.set("fs.azure.account.oauth.provider.type.staaudiotranscripter.dfs.core.windows.net", "org.apache.hadoop.fs.azurebfs.oauth2.ClientCredsTokenProvider")
+spark.conf.set("fs.azure.account.oauth2.client.id.staaudiotranscripter.dfs.core.windows.net", spn_id)
+spark.conf.set("fs.azure.account.oauth2.client.secret.staaudiotranscripter.dfs.core.windows.net", spn_password)
+spark.conf.set("fs.azure.account.oauth2.client.endpoint.staaudiotranscripter.dfs.core.windows.net", "https://login.microsoftonline.com/02589359-ab33-4ac8-a14d-396cc39943ae/oauth2/token")
