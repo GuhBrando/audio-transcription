@@ -1,2 +1,2 @@
 # audio-transcription
-Repositorio para realizar a realizacao do case do Data Master
+Repositorio para realizar o case do Data Master
