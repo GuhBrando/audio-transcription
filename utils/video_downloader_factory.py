@@ -10,7 +10,7 @@ def youtube_video_downloader(values):
                 "video_link": str(video["link"])
             }
         }
-        teste = requests.post(RUN_JOB_API, json=api_payload, headers={"Authorization":"Bearer dapi37471f3e8af728275efc027d77f9535a-3"})
+        teste = requests.post(RUN_JOB_API, json=api_payload, headers={"Authorization":"Bearer "+DATABRICKS_AUTHORIZATION})
         print(teste.json())
 
 def tiktok_video_downlaoder(values):

@@ -37,7 +37,7 @@ def parallelize_audio_transcription(part, offset, duration):
             "duration": 30
         }
     }
-    teste = requests.post(RUN_JOB_API, json=api_payload, headers={"Authorization":"Bearer dapi37471f3e8af728275efc027d77f9535a-3"})
+    teste = requests.post(RUN_JOB_API, json=api_payload, headers={"Authorization":"Bearer "+DATABRICKS_AUTHORIZATION})
     print(teste.json())
     return teste
 parallelize_audio_transcription(1, 30, 30)
