@@ -3,7 +3,22 @@
 
 # COMMAND ----------
 
+# MAGIC %run ./utils/DDL
+
+# COMMAND ----------
+
 # MAGIC %run ./utils/adls_manipulation
+
+# COMMAND ----------
+
+# MAGIC %run ./utils/video_downloader_factory
+
+# COMMAND ----------
+
+def download_youtube_videos(youtube_video_search, quantity_of_videos):
+    videosSearch = CustomSearch(youtube_video_search, VideoSortOrder.uploadDate, limit = quantity_of_videos, language='pt-BR', region = 'BR')
+    video_downloader_factory("youtube", videosSearch.result()["result"])
+download_youtube_videos("opiniao santander brasil", 5)
 
 # COMMAND ----------
 
@@ -11,27 +26,25 @@ display(spark.read.format('csv').load('abfss://b-audio-transcription-files@staau
 
 # COMMAND ----------
 
-configs = {
-    "fs.azure.account.auth.type": "OAuth",
-    "fs.azure.account.oauth.provider.type": "org.apache.hadoop.fs.azurebfs.oauth2.ClientCredsTokenProvider",
-    "fs.azure.account.oauth2.client.id": spn_id,
-    "fs.azure.account.oauth2.client.secret": spn_password,
-    "fs.azure.account.oauth2.client.endpoint": "https://login.microsoftonline.com/"+tenant_id+"/oauth2/token",
-    "fs.azure.createRemoteFileSystemDuringInitialization": "true"
-}
-dbutils.fs.ls("abfss://audio-transcription-files@staaudiotranscripter.dfs.core.windows.net/", extra_configs = configs)
+import requests
+import json
+def parallelize_audio_transcription(part, offset, duration):
+    api_payload = {
+        "job_id": AUDIO_TRANSCRIBER_JOB_ID,
+        "notebook_params": {
+            "audio_source": "teste",
+            "offset": 30,
+            "duration": 30
+        }
+    }
+    teste = requests.post(RUN_JOB_API, json=api_payload, headers={"Authorization":"Bearer dapi37471f3e8af728275efc027d77f9535a-3"})
+    print(teste.json())
+    return teste
+parallelize_audio_transcription(1, 30, 30)
 
 # COMMAND ----------
 
-# MAGIC %sql
-# MAGIC create external table teste(
-# MAGIC     teste1 Int,
-# MAGIC     teste2 String
-# MAGIC )location = /mnt/audio-transcription-files
 
-# COMMAND ----------
-
-spark.sql("select * from bdq.teste")
 
 # COMMAND ----------
 
@@ -97,39 +110,6 @@ def store_audio_file(origin_file, dest_location_plus_file):
 
 # COMMAND ----------
 
-def download_youtube_videos(youtube_video_search, video_quantity):
-    videosSearch = CustomSearch(youtube_video_search, VideoSortOrder.uploadDate, limit = video_quantity, language='pt', region = 'BR')
-    for video in videosSearch.result()["result"]:
-        print(video)
-        video_title = video["title"]+"-"+video["id"]+".mp3"
-        audio_downloader = {
-            'format': 'bestaudio/best',
-            'postprocessors': [{
-                'key': 'FFmpegExtractAudio',
-                'preferredcodec': 'mp3',
-                'preferredquality': '192',
-            }]
-        }
-
-        with youtube_dl.YoutubeDL(audio_downloader) as ydl:
-            result = ydl.extract_info(
-                        video["link"],
-                        download=True
-                    )
-        print(video["title"])
-        adb_workspace = "/Workspace/Repos/guh.brandao@hotmail.com/audio-transcription/"
-        adls_path = "/dbfs/mnt/audio-transcription-files/"
-        audio_path = store_audio_file(adb_workspace+video_title, adls_path+video_title)
-        os.remove(audio_path)
-download_youtube_videos("Minecraft", 2)
-
-# COMMAND ----------
-
-driver = webdriver.Chrome(service=Service(ChromeDriverManager().install()))
-driver.get("https://www.google.com")
-
-# COMMAND ----------
-
 options = Options()
 options.headless = True
 driver = webdriver.Firefox(options=options, executable_path='/tmp/geckodriver')
@@ -163,7 +143,6 @@ account_url = "https://staaudiotranscripter.dfs.core.windows.net"
 default_credential = DefaultAzureCredential()
 
 upload_file_path = os.path.join("/Workspace/Repos/guh.brandao@hotmail.com/audio-transcription", "ytbvideo.wav")
-# Create the BlobServiceClient object
 blob_service_client = BlobServiceClient(account_url, credential=default_credential)
 print(blob_service_client)
 
@@ -281,19 +260,7 @@ sound.export("blackhole.wav", format="wav")
 
 # COMMAND ----------
 
-spark.conf.set(
-  f"fs.azure.account.key.{STORAGE_ACCOUNT}.dfs.core.windows.net",
-  ""
-)
-
-# COMMAND ----------
-
 target_folder_path = 'abfss://audiotranscriptor@guhbrandaohotmail.dfs.core.windows.net/audiotranscriptor'
 
 #write as parquet data
 df_covid.write.format("parquet").save(target_folder_path)
-
-# COMMAND ----------
-
-# MAGIC %sh
-# MAGIC pkill -f apt

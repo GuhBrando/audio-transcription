@@ -1,5 +1,5 @@
 # Databricks notebook source
-#pip install -q selenium youtube-search-python youtube_dl azure.identity azure.storage.blob pipwin
+#pip install -q selenium youtube-search-python youtube_dl azure.identity azure.storage.blob pipwin yt_dlp
 
 # COMMAND ----------
 
@@ -28,15 +28,12 @@
 
 # COMMAND ----------
 
-
-
-# COMMAND ----------
-
+import requests
+import shutil
 from youtubesearchpython import *
 from youtubesearchpython import VideosSearch
 import youtube_dl
 from __future__ import unicode_literals
-import shutil
 from selenium import webdriver
 from selenium.webdriver.chrome.service import Service
 #from webdriver_manager.chrome import ChromeDriverManager
@@ -67,6 +64,10 @@ spn_id = "64e72c3a-2237-4645-9e29-c7af44dc446a"
 tenant_id = "02589359-ab33-4ac8-a14d-396cc39943ae"
 spn_password = dbutils.secrets.get(scope="akv-audio-transcription", key="storage-app-password")
 storageAccountName = "staaudiotranscripter"
+DATABRICKS_INSTANCE = "https://adb-872373942481847.7.azuredatabricks.net"
+RUN_JOB_API = DATABRICKS_INSTANCE+"/api/2.0/jobs/run-now"
+AUDIO_TRANSCRIBER_JOB_ID = 1001668798434807
+YOUTUBE_VIDEO_DOWNLOADER_ID = 608143620388634
 
 spark.conf.set("fs.azure.account.auth.type.staaudiotranscripter.dfs.core.windows.net", "OAuth")
 spark.conf.set("fs.azure.account.oauth.provider.type.staaudiotranscripter.dfs.core.windows.net", "org.apache.hadoop.fs.azurebfs.oauth2.ClientCredsTokenProvider")
