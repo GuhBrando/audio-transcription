@@ -9,9 +9,7 @@ CREATE TABLE IF NOT EXISTS audt.audio_transcription(
 video_url string,
 social_network string,
 video_title string,
-views string,
-reactions string,
-comments string,
+views int,
 transcription string,
 date_time timestamp
 )

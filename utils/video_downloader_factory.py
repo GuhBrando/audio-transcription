@@ -5,7 +5,6 @@ def youtube_video_downloader(values):
         api_payload = {
             "job_id": YOUTUBE_VIDEO_DOWNLOADER_ID,
             "notebook_params": {
-                "video_title": str(video["title"]),
                 "video_id": str(video["id"]),
                 "video_link": str(video["link"])
             }

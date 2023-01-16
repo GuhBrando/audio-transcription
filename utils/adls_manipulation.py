@@ -26,3 +26,11 @@ def mount_disk(fileSystemName, spn_id, spn_password):
     mount_point = "/mnt/"+fileSystemName,
     extra_configs = configs
     )
+
+# COMMAND ----------
+
+fileSystemName = "audio-transcription-files"
+try:
+    mount_disk(fileSystemName, spn_id, spn_password)
+except:
+    print("WARN - Mount do File System ja foi executado. | Skipped")

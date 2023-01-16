@@ -16,82 +16,58 @@
 # COMMAND ----------
 
 def download_youtube_videos(youtube_video_search, quantity_of_videos):
-    videosSearch = CustomSearch(youtube_video_search, VideoSortOrder.uploadDate, limit = quantity_of_videos, language='pt-BR', region = 'BR')
-    video_downloader_factory("youtube", videosSearch.result()["result"])
-download_youtube_videos("opiniao santander brasil", 5)
-
-# COMMAND ----------
-
-display(spark.read.format('csv').load('abfss://b-audio-transcription-files@staaudiotranscripter.dfs.core.windows.net/tabela-adls.csv'))
-
-# COMMAND ----------
-
-import requests
-import json
-def parallelize_audio_transcription(part, offset, duration):
-    api_payload = {
-        "job_id": AUDIO_TRANSCRIBER_JOB_ID,
-        "notebook_params": {
-            "audio_source": "teste",
-            "offset": 30,
-            "duration": 30
-        }
-    }
-    teste = requests.post(RUN_JOB_API, json=api_payload, headers={"Authorization":"Bearer "+DATABRICKS_AUTHORIZATION})
-    print(teste.json())
-    return teste
-parallelize_audio_transcription(1, 30, 30)
-
-# COMMAND ----------
-
-
-
-# COMMAND ----------
-
-dbutils.fs.put("/databricks/ffmpeg_install.sh", """ 
- 
-#! /bin/bash
-# do a backup of the source 
-cp /etc/apt/sources.list{,.bak}
- 
-# remove the cached mirrors
-r="deb http://archive.ubuntu.com/ubuntu/ focal-updates main restricted"
-add-apt-repository --remove "${r}"
-r="deb http://archive.ubuntu.com/ubuntu/ focal-updates universe"
-add-apt-repository --remove "${r}"
-r="deb http://security.ubuntu.com/ubuntu/ focal-security main restricted"
-add-apt-repository --remove "${r}"
- 
-# update apt & install the package
-apt-get update
-apt-get install -y ffmpeg
- 
-""", True)
-
-# COMMAND ----------
-
-fileSystemName = "audio-transcription-files"
-try:
-    mount_disk(fileSystemName, spn_id, spn_password)
-except:
-    print("WARN - Mount do File System ja foi executado. | Skipped")
-
-# COMMAND ----------
-
-def store_audio_file(origin_file, dest_location_plus_file):
     try:
-        shutil.copyfile(origin_file, dest_location_plus_file)
-        return origin_file
+        with open(r'/Workspace/Repos/guh.brandao@hotmail.com/audio-transcription/utils/youtube_folder/downloaded.txt') as f:
+            already_downloaded_videos = [row[1] for row in csv.reader(f,delimiter=' ')]
     except FileNotFoundError:
-        origin_file = origin_file.replace("|", "_").replace("?", "")
-        dest_location_plus_file = dest_location_plus_file.replace("|", "_").replace("?", "")
-        shutil.copyfile(origin_file, dest_location_plus_file)
-        return origin_file
+        already_downloaded_videos = []
+    videos_search = VideosSearch(youtube_video_search, limit = 100)
+    videos_infos = []
+    for video in videos_search.result()["result"]:
+        if len(videos_infos) == quantity_of_videos:
+            break
+        else:
+            try:
+                if len(video["duration"].split(":")) <= 2 and int(video["duration"].split(":")[0]) <= 15 and int(video["duration"].split(":")[0]) >= 3 and video["id"] not in already_downloaded_videos:
+                    videos_infos.append(video)
+            except:
+                pass
+    video_downloader_factory("youtube", videos_infos)
+
+# COMMAND ----------
+
+def transcript_audio_files():
+    audio_files = os.listdir("/dbfs/mnt/audio-transcription-files")
+    r = sr.Recognizer()
+    for file in audio_files:
+        api_payload = {
+                "job_id": AUDIO_TRANSCRIBER_JOB_ID,
+                "notebook_params": {
+                    "audio_source": str('/dbfs/mnt/audio-transcription-files/'+file),
+                }
+            }
+        jobs_audio_transcriber = requests.post(RUN_JOB_API, json=api_payload, headers={"Authorization":"Bearer "+DATABRICKS_AUTHORIZATION})
+        print(jobs_audio_transcriber.json())
+
+# COMMAND ----------
+
+
+download_youtube_videos("Santander Brasil Opiniões", 3)
+try:
+    while len(requests.get(LIST_RUNNING_JOBS, json=api_payload, headers={"Authorization":"Bearer "+DATABRICKS_AUTHORIZATION}).json()["runs"]) != 0:
+        time.sleep(5)
+except KeyError:
+    print("Finalizado")
 
 # COMMAND ----------
 
 # MAGIC %sh
-# MAGIC wget https://github.com/mozilla/geckodriver/releases/download/v0.32.0/geckodriver-v0.32.0-linux64.tar.gz -O /tmp/geckodriver.tar.gz
+# MAGIC cp ./utils/youtube_folder/*.wav /dbfs/mnt/audio-transcription-files/
+# MAGIC rm ./utils/youtube_folder/*.wav
+
+# COMMAND ----------
+
+transcript_audio_files()
 
 # COMMAND ----------
 
@@ -107,35 +83,6 @@ def store_audio_file(origin_file, dest_location_plus_file):
 
 # MAGIC %sh
 # MAGIC sudo apt-get --yes --force-yes install firefox > /dev/null 2>&1
-
-# COMMAND ----------
-
-options = Options()
-options.headless = True
-driver = webdriver.Firefox(options=options, executable_path='/tmp/geckodriver')
-driver.implicitly_wait(5)
-
-search_query = input().split()
-print(search_query)
-
-for word in search_query:
-    final_query += word + "+"
-    
-driver.get('https://www.youtube.com/results?search_query={}'.format(final_query))
-select = driver.find_element(By.CSS_SELECTOR, 'div#contents ytd-item-section-renderer>div#contents a#thumbnail')
-link += [select.get_attribute('href')]
-print(link)
-
-# COMMAND ----------
-
-AUDIO_FILE = "blackhole.wav"
-r = sr.Recognizer()
-    
-with sr.AudioFile(AUDIO_FILE) as source:
-    audio = r.record(source,offset=30, duration=30)
-    text = r.recognize_google(audio, language = 'en-IN', show_all = True)
-    print(text)
-    print("Transcript: " + text["alternative"][0]["transcript"])
 
 # COMMAND ----------
 
@@ -155,11 +102,6 @@ print("\nUploading to Azure Storage as blob:\n\t" + local_file_name)
 # Upload the created file
 with open(file=upload_file_path, mode="rb") as data:
     blob_client.upload_blob(data)
-
-# COMMAND ----------
-
-# MAGIC %sh
-# MAGIC pwd
 
 # COMMAND ----------
 
@@ -193,41 +135,6 @@ with open(file=upload_file_path, mode="rb") as data:
 
 # COMMAND ----------
 
-import speech_recognition as sr
-import os
-from pydub import AudioSegment
-from pydub.playback import play
-import numpy as np
-
-sound_file = AudioSegment.from_mp3("My Childhood Obsession with Animals-6E94j0Goo8A.mp3")
-sound_file_Value = np.array(sound_file.get_array_of_samples())
-# milliseconds in the sound track
-ranges = [(30000,1000000)] 
-
-for x, y in ranges:
-    new_file=sound_file_Value[x : y]
-    song = AudioSegment(new_file.tobytes(), frame_rate=sound_file.frame_rate,sample_width=sound_file.sample_width,channels=1)
-    song.export(str(x) + "-" + str(y) +".mp3", format="mp3")
-
-# COMMAND ----------
-
-import speech_recognition as sr
-import os
-from pydub import AudioSegment
-from pydub.playback import play
-import numpy as np
-
-AUDIO_FILE = "blackhole.wav"
-r = sr.Recognizer()
-    
-with sr.AudioFile(AUDIO_FILE) as source:
-    audio = r.record(source,offset=30, duration=30)
-    text = r.recognize_google(audio, language = 'en-IN', show_all = True)
-    print(text)
-    print("Transcript: " + text["alternative"][0]["transcript"])
-
-# COMMAND ----------
-
 # MAGIC %sh
 # MAGIC sudo apt-get -y install pulseaudio-equalizer
 
@@ -254,9 +161,58 @@ with youtube_dl.YoutubeDL(audio_downloader) as ydl:
 
 # COMMAND ----------
 
+os.listdir("/dbfs/mnt/audio-transcription-files")[0]
+
+# COMMAND ----------
+
 from pydub import AudioSegment
-sound = AudioSegment.from_mp3("Black Hole Star – The Star That Shouldn't Exist-aeWyp2vXxqA.mp3")
-sound.export("blackhole.wav", format="wav")
+
+#shutil.copyfile("/dbfs/mnt/audio-transcription-files/"+os.listdir("/dbfs/mnt/audio-transcription-files")[2], os.listdir("/dbfs/mnt/audio-transcription-files")[2])
+#file = "/Workspace/Repos/guh.brandao@hotmail.com/audio-transcription/AUMENTOS DE LIMITES BANCO DO BRASIL - SANTANDER E RESPONDENDO COMENTARIOS-91vI9AVIIGE.mp3"
+sound = AudioSegment.from_mp3("/Workspace/Repos/guh.brandao@hotmail.com/audio-transcription/AUMENTOS DE LIMITES BANCO DO BRASIL - SANTANDER E RESPONDENDO COMENTARIOS-91vI9AVIIGE.mp3")
+sound.export("/Workspace/Repos/guh.brandao@hotmail.com/audio-transcription/AUMENTOS DE LIMITES BANCO DO BRASIL - SANTANDER E RESPONDENDO COMENTARIOS123-91vI9AVIIGE.wav", format="wav")
+
+# COMMAND ----------
+
+# MAGIC %sh
+# MAGIC sudo apt-get install ffmpeg
+
+# COMMAND ----------
+
+from os import path
+from pydub import AudioSegment
+
+# files                                                                         
+src = "9AVIIGE.mp3"
+dst = "test.wav"
+
+# convert wav to mp3
+AudioSegment.ffmpeg = "/usr/bin/ffmpeg"
+sound = AudioSegment.from_mp3(src)
+sound.export(dst, format="wav")
+
+# COMMAND ----------
+
+# MAGIC %sh
+# MAGIC whereis ffmpeg
+
+# COMMAND ----------
+
+import subprocess
+subprocess.call(['ffmpeg', '-i', 'AUMENTOS DE LIMITES BANCO DO BRASIL SANTANDER E RESPONDENDO COMENTARIOS91vI9AVIIGE.mp3',
+                   'AUMENTOS DE LIMITES BANCO DO BRASIL - SANTANDER E RESPONDENDO COMENTARIOS123-91vI9AVIIGE.wav'])
+
+# COMMAND ----------
+
+os.listdir()
+os.listdir("/dbfs/mnt/audio-transcription-files")
+
+# COMMAND ----------
+
+import subprocess
+
+subprocess.call(['ffmpeg', '-i', '9AVIIGE.mp3',
+               'porfavor2.wav'])
 
 # COMMAND ----------
 

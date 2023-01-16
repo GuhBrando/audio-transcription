@@ -1,16 +1,28 @@
 # Databricks notebook source
 import speech_recognition as sr
 import os
+from youtubesearchpython import Video, ResultMode
 from pydub import AudioSegment
 from pydub.playback import play
-import numpy as np
-filename = 'myfile.wav'
+
+# COMMAND ----------
 
 job_inputs = dbutils.notebook.entry_point.getCurrentBindings()
-AUDIO_FILE = job_inputs["audio_source"]
+audio_source = job_inputs["audio_source"]
 r = sr.Recognizer()
-    
-with sr.AudioFile(AUDIO_FILE) as source:
-    audio = r.record(source, duration = job_inputs["duration"])
-    text = r.recognize_google(audio, language = 'en-IN', show_all = True, offset = job_inputs["offset"])
-    print("Transcript: " + text["alternative"][0]["transcript"])
+
+with sr.AudioFile(audio_source) as source:
+    audio = r.record(source, duration = 180)
+    transcription_text = r.recognize_google(audio, language = 'pt-BR', show_all = True)["alternative"][0]["transcript"]
+    print(transcription_text)
+
+file = audio_source.split("/")[4].split(".")[0]
+video = Video.getInfo("https://www.youtube.com/watch?v="+file, mode = ResultMode.json)
+video_url = "https://www.youtube.com/watch?v="+file
+video_title = video["title"]
+views = video["viewCount"]["text"]
+upload_date = video["publishDate"]
+
+spark.sql(f"insert into audt.audio_transcription values ('{video_url}','Youtube','{video_title}','{views}','{transcription_text}','{upload_date}')")
+
+os.remove(audio_source)
