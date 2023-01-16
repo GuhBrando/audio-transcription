@@ -13,9 +13,9 @@ r = sr.Recognizer()
 
 with sr.AudioFile(audio_source) as source:
     audio = r.record(source, duration = 180)
-    transcription_text = r.recognize_google(audio, language = 'pt-BR', show_all = True)["alternative"][0]["transcript"]
+    transcription_text = r.recognize_google(audio, language = 'pt-BR', show_all = True)
     print(transcription_text)
-
+    transcription_text = transcription_text["alternative"][0]["transcript"]
 file = audio_source.split("/")[4].split(".")[0]
 video = Video.getInfo("https://www.youtube.com/watch?v="+file, mode = ResultMode.json)
 video_url = "https://www.youtube.com/watch?v="+file
