@@ -13,9 +13,17 @@ r = sr.Recognizer()
 
 with sr.AudioFile(audio_source) as source:
     audio = r.record(source, duration = 180)
-    transcription_text = r.recognize_google(audio, language = 'pt-BR', show_all = True)
+    try:
+        transcription_text = r.recognize_google(audio, language = 'pt-BR', show_all = True)
+    except:
+        os.remove(audio_source)
+        dbutils.notebook.exit("Erro ao realizar transcrição. Audio em outra linguagem ou mal formatado. Arquivo sendo removido")
     print(transcription_text)
-    transcription_text = transcription_text["alternative"][0]["transcript"]
+    try:
+        transcription_text = transcription_text["alternative"][0]["transcript"].replace("'", "")
+    except TypeError:
+        os.remove(audio_source)
+        dbutils.notebook.exit("Transcrição vazia. Audio em outra linguagem ou mal formatado. Arquivo sendo removido")
 file = audio_source.split("/")[4].split(".")[0]
 video = Video.getInfo("https://www.youtube.com/watch?v="+file, mode = ResultMode.json)
 video_url = "https://www.youtube.com/watch?v="+file

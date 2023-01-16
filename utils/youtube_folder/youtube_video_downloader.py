@@ -52,7 +52,5 @@ try:
     adb_workspace = "/Workspace/Repos/guh.brandao@hotmail.com/audio-transcription/utils/youtube_folder/"
     adls_path = "/dbfs/mnt/audio-transcription-files/"
     video_title = video_details.get('title', None)+"-"+video_details.get('id', None)+".wav"
-    #audio_path = store_audio_file(adb_workspace+video_id_ext, adls_path+video_id_ext)
-    #os.remove(audio_path)
 except:
     os.remove(video_details["id"]+".webm")

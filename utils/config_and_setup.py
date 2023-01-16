@@ -58,7 +58,9 @@ storageAccountName = "staaudiotranscripter"
 DATABRICKS_INSTANCE = "https://adb-872373942481847.7.azuredatabricks.net"
 DATABRICKS_AUTHORIZATION = dbutils.secrets.get(scope="akv-audio-transcription", key="databricks-user-token")
 RUN_JOB_API = DATABRICKS_INSTANCE+"/api/2.0/jobs/run-now"
+CANCEL_RUNNING_JOBS = DATABRICKS_INSTANCE+"/api/2.1/jobs/runs/cancel-all"
 LIST_RUNNING_JOBS = DATABRICKS_INSTANCE+"/api/2.1/jobs/runs/list"
+
 AUDIO_TRANSCRIBER_JOB_ID = 1001668798434807
 YOUTUBE_VIDEO_DOWNLOADER_ID = 608143620388634
 
