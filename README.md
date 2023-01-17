@@ -6,6 +6,7 @@ Principal proposta é conseguirmos realizar o download de vídeos de mídias soc
 
 # Arquitetura do Projeto
 ![enter image description here](https://raw.githubusercontent.com/GuhBrando/audio-transcription/main/Desenho%20de%20Arquitetura.png)
+
 Imagem 1 – Arquitetura do Projeto
 
 Acima vemos a arquitetura do projeto, nela esta separada em diversos retângulos cujo cada um tem seu proposito e finalidade.
